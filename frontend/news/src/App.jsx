@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import io from "socket.io-client";
 import axios from "axios";
 import "./index.css";
-const socket = io("http://localhost:5000"); 
+const socket = io("https://news-project-1-jakb.onrender.com"); 
 
 function App() {
   const [email, setEmail] = useState("");
@@ -24,7 +24,7 @@ function App() {
       return;
     }
     try {
-      const response = await axios.post("http://localhost:5000/subscribe", {
+      const response = await axios.post("https://news-project-1-jakb.onrender.com", {
         email,
         categories,
         frequency,
