@@ -13,14 +13,18 @@ const server = http.createServer(app);
 const FRONTEND_URL = "https://shrth.netlify.app";
 
 const io = new Server(server, {
-  cors: { origin: FRONTEND_URL, methods: ["GET", "POST"] },
+  cors: { origin: FRONTEND_URL, methods: ["GET", "POST", "OPTIONS"] },
 });
 
-app.use(cors({
-  origin: FRONTEND_URL,
-  methods: ["GET", "POST"],
-  credentials: true
-}));
+
+app.use(
+  cors({
+    origin: FRONTEND_URL,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
 mongoose.connect(process.env.MONGO_URI, {
