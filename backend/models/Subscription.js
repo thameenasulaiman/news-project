@@ -1,9 +1,9 @@
 const mongoose = require("mongoose");
 
 const subscriptionSchema = new mongoose.Schema({
-  email: String,
+  email: { type: String, required: true, unique: true },
   categories: [String],
-  frequency: String,
-});
+  frequency: { type: String, default: "immediate" },
+}, { timestamps: true });
 
 module.exports = mongoose.model("Subscription", subscriptionSchema);
