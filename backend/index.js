@@ -20,14 +20,16 @@ const io = new Server(server, {
   cors: { origin: FRONTEND_URL, methods: ["GET", "POST"] },
 });
 
-app.use(cors({ origin: FRONTEND_URL, methods: ["GET","POST"], credentials:true }));
+app.use(cors({ origin: FRONTEND_URL, methods: ["GET", "POST"], credentials: true }));
 app.use(express.json());
 
+// MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-}).then(() => console.log("✅ MongoDB connected"))
-  .catch(err => console.log("Mongo error:", err));
+})
+.then(() => console.log("✅ MongoDB connected"))
+.catch(err => console.log("Mongo error:", err));
 
 app.use("/", subscriptionRoutes);
 
@@ -46,14 +48,18 @@ const transporter = nodemailer.createTransport({
 // Fetch news from NewsAPI
 async function fetchNews(category) {
   try {
-    const res = await axios.get(`https://newsapi.org/v2/top-headlines?category=${category}&language=en&apiKey=${process.env.NEWS_API_KEY}`);
-    return res.data.articles.slice(0,3).map(a => ({
+    const res = await axios.get(
+      `https://newsapi.org/v2/top-headlines?category=${category}&language=en&apiKey=${process.env.NEWS_API_KEY}`
+    );
+    const articles = res.data.articles.slice(0, 3).map(a => ({
       title: a.title,
       source: a.source.name,
-      url: a.url
+      url: a.url,
     }));
+    console.log(`✅ Fetched ${articles.length} ${category} articles`);
+    return articles;
   } catch (err) {
-    console.error(`Error fetching ${category} news:`, err.message);
+    console.error(`❌ Error fetching ${category} news:`, err.message);
     return [];
   }
 }
@@ -61,7 +67,7 @@ async function fetchNews(category) {
 // Broadcast news to subscribers
 async function broadcastNews() {
   const subs = await Subscription.find();
-  const categories = ["politics","sports","technology","business","health"];
+  const categories = ["politics", "sports", "technology", "business", "health"];
 
   for (const category of categories) {
     const articles = await fetchNews(category);
@@ -71,30 +77,42 @@ async function broadcastNews() {
     io.emit("news", { category, articles });
 
     // Email notifications based on frequency
-    subs.filter(sub => sub.categories.includes(category)).forEach(sub => {
-      const now = new Date();
-      const sendNow = sub.frequency === "immediate" ||
-        (sub.frequency === "hourly" && now.getMinutes() === 0) ||
-        (sub.frequency === "daily" && now.getHours() === 9); // 9 AM daily
+    subs
+      .filter(sub => sub.categories.includes(category))
+      .forEach(sub => {
+        const now = new Date();
+        const sendNow =
+          sub.frequency === "immediate" ||
+          (sub.frequency === "hourly" && now.getMinutes() === 0) ||
+          (sub.frequency === "daily" && now.getHours() === 9); // 9 AM daily
 
-      if (!sendNow) return;
+        if (!sendNow) return;
 
-      const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: sub.email,
-        subject: `Breaking ${category.toUpperCase()} News`,
-        html: `<h2>Latest ${category} Updates</h2><ul>${articles.map(a => `<li><a href="${a.url}" target="_blank">${a.title}</a> - <i>${a.source}</i></li>`).join("")}</ul>`
-      };
+        const mailOptions = {
+          from: process.env.EMAIL_USER,
+          to: sub.email,
+          subject: `Breaking ${category.toUpperCase()} News`,
+          html: `<h2>Latest ${category} Updates</h2>
+                 <ul>${articles
+                   .map(
+                     a =>
+                       `<li><a href="${a.url}" target="_blank">${a.title}</a> - <i>${a.source}</i></li>`
+                   )
+                   .join("")}</ul>`,
+        };
 
-      transporter.sendMail(mailOptions, err => {
-        if(err) console.log("Email error:", err.message);
+        transporter.sendMail(mailOptions, err => {
+          if (err) console.log("Email error:", err.message);
+        });
       });
-    });
   }
 }
 
 // CRON schedule every 5 mins
-cron.schedule("*/5 * * * *", broadcastNews);
+cron.schedule("*/1 * * * *", broadcastNews);
+
+// Run once immediately when server starts
+broadcastNews();
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
