@@ -107,7 +107,7 @@ async function broadcastNews() {
   }
 }
 
-cron.schedule("*/5 * * * *", broadcastNews);
+cron.schedule("*/1 * * * *", broadcastNews);
 broadcastNews();
 
 const PORT = process.env.PORT || 5000;
