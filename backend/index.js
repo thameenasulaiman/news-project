@@ -14,7 +14,8 @@ const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const app = express();
 const server = http.createServer(app);
 
-const FRONTEND_URL = "https://shrth.netlify.app"; // replace with your frontend
+// ✅ Update this to your live frontend
+const FRONTEND_URL = "https://shrth.netlify.app";
 
 const io = new Server(server, {
   cors: { origin: FRONTEND_URL, methods: ["GET", "POST"] },
@@ -23,29 +24,42 @@ const io = new Server(server, {
 app.use(cors({ origin: FRONTEND_URL, methods: ["GET", "POST"], credentials: true }));
 app.use(express.json());
 
-// MongoDB Connection
+// ✅ MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
 .then(() => console.log("✅ MongoDB connected"))
-.catch(err => console.log("Mongo error:", err));
+.catch(err => console.log("❌ Mongo error:", err.message));
 
 app.use("/", subscriptionRoutes);
 
-// Socket.io connection
-io.on("connection", socket => {
+// ✅ Fetch news by category (needed for frontend)
+app.get("/news/:category", async (req, res) => {
+  const { category } = req.params;
+  try {
+    const response = await axios.get(
+      `https://newsapi.org/v2/top-headlines?category=${category}&language=en&apiKey=${process.env.NEWS_API_KEY}`
+    );
+    res.json(response.data.articles.slice(0, 6));
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching news" });
+  }
+});
+
+// ✅ Socket.io connection
+io.on("connection", (socket) => {
   console.log("🟢 User connected:", socket.id);
   socket.on("disconnect", () => console.log("🔴 User disconnected:", socket.id));
 });
 
-// Email transporter
+// ✅ Email transporter
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 });
 
-// Fetch news from NewsAPI
+// ✅ Fetch and broadcast news
 async function fetchNews(category) {
   try {
     const res = await axios.get(
@@ -56,15 +70,12 @@ async function fetchNews(category) {
       source: a.source.name,
       url: a.url,
     }));
-    console.log(`✅ Fetched ${articles.length} ${category} articles`);
     return articles;
-  } catch (err) {
-    console.error(`❌ Error fetching ${category} news:`, err.message);
+  } catch {
     return [];
   }
 }
 
-// Broadcast news to subscribers
 async function broadcastNews() {
   const subs = await Subscription.find();
   const categories = ["politics", "sports", "technology", "business", "health"];
@@ -73,10 +84,10 @@ async function broadcastNews() {
     const articles = await fetchNews(category);
     if (!articles.length) continue;
 
-    // Real-time socket update
+    // Real-time updates
     io.emit("news", { category, articles });
 
-    // Email notifications based on frequency
+    // Send emails
     subs
       .filter(sub => sub.categories.includes(category))
       .forEach(sub => {
@@ -84,7 +95,7 @@ async function broadcastNews() {
         const sendNow =
           sub.frequency === "immediate" ||
           (sub.frequency === "hourly" && now.getMinutes() === 0) ||
-          (sub.frequency === "daily" && now.getHours() === 9); // 9 AM daily
+          (sub.frequency === "daily" && now.getHours() === 9);
 
         if (!sendNow) return;
 
@@ -92,26 +103,20 @@ async function broadcastNews() {
           from: process.env.EMAIL_USER,
           to: sub.email,
           subject: `Breaking ${category.toUpperCase()} News`,
-          html: `<h2>Latest ${category} Updates</h2>
-                 <ul>${articles
-                   .map(
-                     a =>
-                       `<li><a href="${a.url}" target="_blank">${a.title}</a> - <i>${a.source}</i></li>`
-                   )
-                   .join("")}</ul>`,
+          html: `<h2>Latest ${category} Updates</h2><ul>${articles
+            .map(a => `<li><a href="${a.url}" target="_blank">${a.title}</a> - <i>${a.source}</i></li>`)
+            .join("")}</ul>`,
         };
 
-        transporter.sendMail(mailOptions, err => {
+        transporter.sendMail(mailOptions, (err) => {
           if (err) console.log("Email error:", err.message);
         });
       });
   }
 }
 
-// CRON schedule every 5 mins
-cron.schedule("*/1 * * * *", broadcastNews);
-
-// Run once immediately when server starts
+// Run every 5 minutes
+cron.schedule("*/5 * * * *", broadcastNews);
 broadcastNews();
 
 const PORT = process.env.PORT || 5000;
