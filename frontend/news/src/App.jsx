@@ -14,7 +14,6 @@ export default function App() {
 
   const availableCategories = ["politics", "sports", "technology", "business", "health"];
 
-  // Fetch initial news
   useEffect(() => {
     (async () => {
       try {
@@ -30,7 +29,6 @@ export default function App() {
     })();
   }, []);
 
-  // Socket listener
   useEffect(() => {
     socket.on("news", (data) => {
       setAlerts((prev) => [data, ...prev].slice(0, 20));
@@ -72,7 +70,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col md:flex-row">
-      {/* Sidebar */}
       <aside className="bg-gray-800 p-6 md:w-80 w-full">
         <h1 className="text-3xl font-bold mb-6 text-yellow-400">News Alerts</h1>
 
@@ -119,7 +116,6 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main Dashboard */}
       <main className="flex-1 p-6 overflow-auto">
         <section className="mb-8">
           <h2 className="text-3xl font-bold mb-4 text-yellow-400">Live Alerts</h2>
