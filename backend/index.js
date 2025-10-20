@@ -14,7 +14,6 @@ const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const app = express();
 const server = http.createServer(app);
 
-// ✅ Update this to your live frontend
 const FRONTEND_URL = "https://shrth.netlify.app";
 
 const io = new Server(server, {
@@ -24,17 +23,15 @@ const io = new Server(server, {
 app.use(cors({ origin: FRONTEND_URL, methods: ["GET", "POST"], credentials: true }));
 app.use(express.json());
 
-// ✅ MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log("✅ MongoDB connected"))
-.catch(err => console.log("❌ Mongo error:", err.message));
+.then(() => console.log("MongoDB connected"))
+.catch(err => console.log(" Mongo error:", err.message));
 
 app.use("/", subscriptionRoutes);
 
-// ✅ Fetch news by category (needed for frontend)
 app.get("/news/:category", async (req, res) => {
   const { category } = req.params;
   try {
@@ -47,19 +44,16 @@ app.get("/news/:category", async (req, res) => {
   }
 });
 
-// ✅ Socket.io connection
 io.on("connection", (socket) => {
   console.log("🟢 User connected:", socket.id);
-  socket.on("disconnect", () => console.log("🔴 User disconnected:", socket.id));
+  socket.on("disconnect", () => console.log(" User disconnected:", socket.id));
 });
 
-// ✅ Email transporter
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 });
 
-// ✅ Fetch and broadcast news
 async function fetchNews(category) {
   try {
     const res = await axios.get(
@@ -84,10 +78,8 @@ async function broadcastNews() {
     const articles = await fetchNews(category);
     if (!articles.length) continue;
 
-    // Real-time updates
     io.emit("news", { category, articles });
 
-    // Send emails
     subs
       .filter(sub => sub.categories.includes(category))
       .forEach(sub => {
@@ -115,9 +107,8 @@ async function broadcastNews() {
   }
 }
 
-// Run every 5 minutes
 cron.schedule("*/5 * * * *", broadcastNews);
 broadcastNews();
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(` Server running on port ${PORT}`));

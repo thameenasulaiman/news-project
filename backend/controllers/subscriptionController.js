@@ -1,6 +1,5 @@
 const Subscription = require("../models/Subscription");
 
-// Create or update subscription
 exports.createSubscription = async (req, res) => {
   const { email, categories, frequency } = req.body;
 
@@ -12,7 +11,6 @@ exports.createSubscription = async (req, res) => {
     let sub = await Subscription.findOne({ email });
 
     if (sub) {
-      // Merge new categories with existing ones
       sub.categories = Array.from(new Set([...sub.categories, ...categories]));
       sub.frequency = frequency; 
       await sub.save();
@@ -28,7 +26,6 @@ exports.createSubscription = async (req, res) => {
   }
 };
 
-// Unsubscribe from specific categories
 exports.unsubscribe = async (req, res) => {
   const { email, categories } = req.body;
   if (!email || !categories?.length) return res.status(400).json({ message: "Email and categories required." });
